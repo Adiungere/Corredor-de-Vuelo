@@ -7,9 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1UniX2ps1vvhTd4oy2ejQ5j0xZrSvqV1m
 """
 
-!pip install geoplot
-!pip install plotly
-
 # Commented out IPython magic to ensure Python compatibility.
 # Este programa sirve para generar traectorias nominal es de proyectiles.
 # Lanzamiento de cohetes desde cualquier punto de la tierra con culaquier
