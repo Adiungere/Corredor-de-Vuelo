@@ -11,14 +11,14 @@ class SitioLanzamiento():
   VelSon = 300
 
   def __init__(self, lat, long, alt=0, nombre="Sin nombre"):
-    self.lat=lat*(m.pi)/180
-    self.long=long*(m.pi)/180
+    self.lat=lat
+    self.long=long
     self.alt=alt
     self.nombre=nombre
     self.Coor=[self.lat,self.long]
 
   def __str__(self):
-    return "Sitio:{} Latitud:{} Longitud:{} Altitud: {}" .format(self.nombre, self.lat*180/m.pi, self.long*180/m.pi, self.alt)
+    return "Sitio:{} Latitud:{} Longitud:{} Altitud: {}" .format(self.nombre, self.lat, self.long, self.alt)
 
   def MostrarParamTierra(self):
     print("Masa:", self.Mass, "\nMu: ", self.Mu, "\nSemi Eje Mayor: ", self.a, "\nSemi Eje Menor:",self.b)

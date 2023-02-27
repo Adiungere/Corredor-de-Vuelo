@@ -71,27 +71,12 @@ Original file is located at
 #---------------------------
 
 import math as m
-import geoplot as gplt
-import plotly.graph_objects  as go
-import pandas as pd 
-import csv
-from mpl_toolkits import mplot3d
 # %matplotlib inline
 import numpy as np
 import matplotlib.pyplot as plt
-import plotly.graph_objects  as go
-
+import plotly.graph_objects as go
 
 #Parametro de la Tierra
-EarthMass=5.972*10**24;
-Mu=6.674*10**-11;
-a_axis=6378.136999995039*10**3;
-b_axis=6356.75231420888*10**3;
-f=1-b_axis/a_axis;
-e=(2*f-f**2)**.5;
-pi=3.141592653589793238;
-omega=2*pi/(3600*24)
-SpeedSound=300
 
 Geodetic1=[np.array([0,0,0])]
 Geodetic2=[np.array([0,0,0])]
@@ -134,9 +119,7 @@ Acc_ENU2=[np.array([0,0,0])]
 #----------------------------------
 
 # Parametrso del lanzamiento
-Azimuth=220*pi/180                        # Azimut del lanzamiento
-origin=[24.5, -111.5, 0*10**3]            # Zona de lanzamiento
-file=open('BajaCaliforniaPolar','wt')     # Abrir el Archivo donde se guardaran los datos de la trayectoria nominal
+file=open('ResultadosSimulador/BajaCaliforniaPolar', 'wt')     # Abrir el Archivo donde se guardaran los datos de la trayectoria nominal
 
 
 latitud_o=(pi/180)*(origin[0])
@@ -169,33 +152,12 @@ ECEFtoENU=np.array(ECEFtoENU)
 ENU1[0]=[0, 0, 0];
 ENU2[0]=ENU1[0];
 
-# Parametros de Cohete
-D_Rocket=1.2                    # Diametro de la seccion transversal cohete
-A_Rocket=3.14*.25*D_Rocket**2    # Area de la seccion transeversal
-MP=225                          # Masa de la carga util
-M2dry_P=250+MP                  # Masa seca de la segunda etapa mas carga util
-M2F=2300+M2dry_P                # Masa total de la segunda etapa: seca, combustible, payload
-M2F_1dry=950+M2F                # Masa seca de la primera mas la total de la segunda
-M_Rocket_o=M2F_1dry+10*10**3     # Masa de despuegue, Liftoff mass del cohete
-Cd_Min=0.4
 
-# Lso sigueintes datso pueden substituirse por una tabla con la curva de
-# motor
-MaxThrust1=162*10**3
-MinThrust1=50*10**3
-ThrustSecond=23*10**3
-t_MECO=155                      # Tiempo que duran prendidos los motores de la primera etapa Main Engine Cutt Off
-t_2Stage=157                    # Tiempo que duran prendidos los motores de la segunda etapa
-t_SECO=t_2Stage+t_MECO          # Isntante en que se apagan los motores de la Segunda Etapa. Second Engien Cut Off
-VJet1=3030                      # Velocidad de los gases de escape de la primera etapa
-VJet2=3400                      # Velocidad de los gases de escape de la primera etapa
 # Direccion a que apunta el cohete durante la pitch over manuever.
 # Realmente esto es un proceso de dincamica del cuerpo rigido pero por
 # simplesa lo ejecuto con un cambio en la direccion del vector de
 # propulsion
-t_pitchOver=9                  # Instante apartir del liftoff en que inicia el Gravity turn
-Gimbal=10*pi/180 
-PitchOverDuration=2.1
+
 
 # Esta direccion esta en ENU, osea que emepzamo apuntando hacia arriba
 Direccion1[0]=np.array([0, 0, 1])  
@@ -209,141 +171,6 @@ t=[0];
 dt=.2;
 ##  Se generara una trayectoria en ENU
 # j sera nuestro indice
-
-def ECEFtoLLH(E, F, G):
-  a_axis=6378.136999995039*10**3     # Eje mayor de la ellipse de la tierrra
-  b_axis=6356.75231420888*10**3      # Eje menos del la Ellipse de la tierra
-  f=1-b_axis/a_axis                  # Flatenning ratio, 
-  e=(2*f-f**2)**.5                     # Eccentricidad
-# Calculas las coordenadas geodetic apartir de las ECEF, estos
-  # valores son los que no son exactos y requeriran iteraciones
-  longg=m.atan2(F,E)                                       # Primera aproximacion de la longitud
-  latg=m.atan2( G*((1-f)**-2),((E**2+F**2)**.5) )              # Primera aproxmacion de la latitud
-  hg=(E**2+F**2+G**2)**.5 - a_axis*( (1-e**2) / (    1-( e*m.cos(m.atan(G/((E**2+F**2)**.5))) )**2)   )**.5  #Primera aproximacion de la altura
-    
-
-  # Prime radius of curvature. Radio de curvatura longitudinal
-  Ng=a_axis/( 1-(e*m.sin(latg))**2 )**.5
-  # Meridian radius of curvture. Radio de curvatura latitud
-  Mg=a_axis*(1-e**2)*(1-(e*m.sin(latg))**2)**-1.5
-
-  # Imprimimos la primera aproximacion LLH. Esto solo sirve si se alguein
-  # tiene interes en conocer el valor, para debuggear el programa
-  
-  LLH1=np.array([longg,latg,hg])  
-  np.transpose(LLH1)
-  LLH=LLH1
-  # con las coordenadas LLH no exacta calcumos de nuevo las ECEF,
-  # estas ECEFg tendran un error con las ECEF, esto nos servira para
-  # medir el error de las LLH
-
-  Eg=(Ng+hg)*m.cos(longg)*m.cos(latg)
-  Fg=(Ng+hg)*m.sin(longg)*m.cos(latg)
-  Gg=(Ng*(1-e**2)+hg)*m.sin(latg)
-  
-  Error=np.array([Eg,Fg,Gg]) - np.array([E,F,G])
-  
-  # Haremos esta itereacion hasta que el error sea menor a una cantidad
-  while  (Error[0]**2+Error[1]**2+Error[2]**2)**.5>1 :
-    # Matriz de transformacion
-    dECEFtodENU=[[-m.sin(longg),                    m.cos(longg),                       0],
-                [-m.cos(longg)*m.sin(latg), -m.sin(longg)*m.sin(latg), m.cos(latg)],
-                [m.cos(longg)*m.cos(latg),  m.sin(longg)*m.cos(latg), m.sin(latg)]]
-    dECEFtodENU=np.array(dECEFtodENU)
-
-    # Matriz de transforacion diferencial o Tensor metrico 
-    dENUtodLLA=[[1/(m.cos(latg)*(Ng + hg)),     0          ,  0],
-                [0                      ,          1/(Mg + hg), 0],
-                [0                      ,          0          , 1]]
-    dENUtodLLA=np.array(dENUtodLLA)
-
-    dECEFtodLLA=dENUtodLLA@dECEFtodENU
-    LLH=LLH-dECEFtodLLA@Error
-
-    longg=LLH[0]
-    latg=LLH[1]
-    hg=  LLH[2]
-
-    Eg=(Ng+hg)*m.cos(longg)*m.cos(latg)
-    Fg=(Ng+hg)*m.sin(longg)*m.cos(latg)
-    Gg=(Ng*(1-e**2)+hg)*m.sin(latg)
-    Ng=a_axis/( 1-(e*m.sin(latg))**2 )**.5
-    Mg=a_axis*(1-e**2)*(1-(e*m.sin(latg))**2)**-1.5
-    Error=np.transpose([Eg,Fg,Gg]) - np.transpose([E,F,G])
-  
-  Long=(longg)*180/m.pi
-  Lat=(latg)*180/m.pi
-  High=hg
-  return [Lat,Long, High]
-
-
-#creando función AERtoLLH para usar después
-def AERtoLLH(Lat1, Long1, azimut, Rango):
-  a_axis=6378.136999995039*10**3
-  b_axis=6356.75231420888*10**3
-  f=1-b_axis/a_axis
-  ecc_sec=(a_axis**2-b_axis**2)**.5/b_axis
-  theta=Rango/b_axis
-  B1=m.atan2(b_axis*m.sin(Lat1),( a_axis*m.cos(Lat1)))
-  g=m.cos(B1)*m.cos(azimut)
-  h=m.cos(B1)*m.sin(azimut)
-  mgeo=0.5*(1+0.5*(ecc_sec*m.sin(B1))**2)*(1-h**2)
-  n=0.5*(1+0.5*(ecc_sec*m.sin(B1))**2)*( (m.sin(B1)**2)*m.cos(theta)+g*m.sin(B1)*m.sin(theta))
-  L=h*( -f*theta + 3*(f**2)*n*m.sin(theta) + 0.5*3*(f**2)*mgeo*(theta-m.sin(theta)*m.cos(theta)) )
-  M=mgeo*ecc_sec**2                             
-  N=n*ecc_sec**2
-  A1=N*m.sin(theta)                                    
-  A2=(.5*M)*(m.sin(theta)*m.cos(theta)-theta)
-  A3=(5/2)*(N**2)*m.sin(theta)*m.cos(theta)
-  A4=(M**2/16)*(11*theta-13*m.sin(theta)-8*theta*m.cos(theta)**2+10*m.sin(theta)*m.cos(theta)**3)
-  A5=(M*N/2)*(3*m.sin(theta)+2*theta*m.cos(theta)-5*m.sin(theta)*m.cos(theta)**2)
-  delta2=theta-A1+A2+A3+A4+A5
-  B2_1=m.asin(m.sin(B1)*m.cos(delta2)+g*m.sin(delta2))      
-  B2_2=m.acos( ( h**2+(g*m.cos(delta2)-m.sin(B1)*m.sin(delta2))**2)**.5 )
-  Lat2=m.atan2(a_axis*m.sin(B2_1),b_axis*m.cos(B2_1))
-  Long2=(Long1 + L + m.atan2(m.sin(delta2)*m.sin(azimut),(m.cos(B1)*m.cos(delta2)-m.sin(B1)*m.sin(delta2)*m.cos(azimut))))
-  return [Lat2, Long2]
-
-def LLHtoAER(Lat1, Long1, Lat2, Long2):
-  if(Lat1 != Lat2 and Long2 != Long1):
-    a_axis=6378.136999995039*10**3      # Eje mayor de la elipse de la tierra
-    b_axis=6356.75231420888*10**3       # Eje menor de la elipse de la tierra
-    f=1-b_axis/a_axis                  # Flatening ratio
-    e=(2*f-f**2)**.5                     # Primera Eccentricidad
-    pi=3.141592653589793238
-
-    L=Long2-Long1;                      # Diferencia de Longitudes
-    B1=m.atan2(b_axis*m.sin(Lat1),(a_axis*m.cos(Lat1)))
-    B2=m.atan2(b_axis*m.sin(Lat2),(a_axis*m.cos(Lat2)))
-    
-    A=m.sin(B1)*m.sin(B2)
-    B=m.cos(B1)*m.cos(B2)
-    
-    delta=m.acos(A+B*m.cos(L))
-    n=(a_axis-b_axis)/(a_axis+b_axis)
-    B12= Lat2-Lat1 + 2*( A*(n+n**2+n**3) - B*(n-n**2+n**3) )*m.sin(Lat1-Lat2)
-    
-    #DELTA=m.asin( ( (m.sin(L)*m.cos(B2))**2 + (m.sin(B2-B1) + 2*m.cos(B2)*m.sin(B1)*(m.sin(L/2)**2)))**.5 )
-    c=B*m.sin(L)/m.sin(delta)
-    mgeo=1-c**2
-      
-    Range=b_axis*(delta*(1+f+f**2) + A*( (f+f**2)*m.sin(delta) - (f*delta)**2/(2*m.sin(delta)) ) 
-       -(mgeo/2)*( (f+f**2)*(delta+m.sin(delta)*m.cos(delta)) - (f*delta)**2/m.tan(delta) )
-       -((A*f)**2)*m.sin(delta)*m.cos(delta) 
-       +((f*mgeo/4)**2)*( delta + m.sin(delta)*m.cos(delta) - 2*m.sin(delta)*m.cos(delta)**3 - 8*delta**2/m.tan(delta) )
-       +( ((A*f)**2)*mgeo/2 )*( m.sin(delta)*m.cos(delta)**2 + delta + delta**2/m.sin(delta) )
-       +delta*(f+f**2) - ((A*f**2)/2)*(m.sin(delta) + 2*delta**2/m.sin(delta)) )
-    
-    LAMBDA= L + c*( 0.25*mgeo*(f**2)*(m.sin(delta)*m.cos(delta) - 5*delta + 4*(delta**2)/m.tan(delta) ))
-    Az=(180/pi)*m.atan2( m.cos(B2)*m.sin(LAMBDA),( 2*m.cos(B2)*m.sin(B1)*m.sin(LAMBDA/2)**2 + m.sin(B2-B1)  ))
-    alfa21=(180/pi)*m.atan2(-m.cos(B1)*m.sin(LAMBDA),( 2*m.cos(B1)*m.sin(B2)*m.sin(LAMBDA/2)**2 - m.sin(B2-B1)  ))
-    Az2=alfa21
-  else:
-    Az=0
-    Range=0
-    Az2=0
-  vector = [Az, Range, Az2]
-  return vector
 
 for j in range(0,3000):
 #----------------------------
@@ -598,12 +425,7 @@ for j in range(0,3000):
 
   t[j+1]=t[j]+dt;
 
-## Guardar la simualcion en txt
-#file=fopen('TrayectoriaNominalElectron','wt')
-#encabezado=['Tiempo, VelENU1_E, VelENU1_N, VelENU1_U, ENU1_E, ENU1_N, ENU1_U, ECEF1_E, ECEF1_F, ECEF1_G, LLH1_Lat, LLH1_Long, LLH1_High, AER1_Az, AER1_El, AER1_R,' 
-#                    'VelENU2_E, VelENU2_N, VelENU2_U, ENU2_E, ENU2_N, ENU2_U, ECEF2_E, ECEF2_F, ECEF2_G, LLH2_Lat, LLH2_Long, LLH2_High, AER2_Az, AER2_El, AER2_R, \n']
 
-#fopen(file)
 ## Graficar
 # Geodetic1
 # ENU1
@@ -625,37 +447,47 @@ fig1 = plt.figure(1)
 plt.plot(t[:-1], Geodetic1[:-1,2]/1000, t[:-1], Geodetic2[:-1,2]/1000)
 plt.LineWith=4
 plt.title("Altitud[km] vs Tiempo[s]")
+plt.ylabel("km")
+plt.xlabel("s")
 plt.legend(['Etapa 1','Etapa 2'])
 #
 fig2 = plt.figure(2)
 plt.plot(AER1[:-1,2]/1000, Geodetic1[:-1,2]/1000, AER2[:-1,2]/1000, Geodetic2[:-1,2]/1000)
 plt.title("Altitud[km] vs Rango[km]")
+plt.ylabel("km")
+plt.xlabel("km")
 plt.legend(['Etapa 1','Etapa 2'])
 
 fig3 = plt.figure(3)
 plt.plot(t, M_Rocket1, t, M_Rocket2)
 plt.title("Masa Vehiculo[kg] vs Tiempo[s]")
+plt.ylabel("kg")
+plt.xlabel("s")
 plt.legend(['Etapa 1','Etapa 2'])
 
 fig4 = plt.figure(4)
-plt.plot(t, Speed1, t, Speed2)
+plt.plot(t[:-1], Speed1[:-1], t[:-1], Speed2[:-1])
 plt.title("Velocidad[m/s] vs Tiempo[s]")
+plt.ylabel("m/s")
+plt.xlabel("s")
 plt.legend(['Etapa 1','Etapa 2'])
 
 fig5 = plt.figure(5)
 plt.plot(t, Empuje1, t, Empuje2, t, DRAG1, t, DRAG2, t, Weigth1, t, Weigth2)
 plt.title("Fuerzas[N] vs Tiempo[s]")
+plt.ylabel("kN")
+plt.xlabel("s")
 plt.legend(['Empuje1',' Empuje2', 'Arrastre1', 'Arrastre2', 'Peso1', 'Peso2'])
 
 #
 fig7 = plt.figure(7)
 ax = plt.axes(projection='3d')
+plt.title("Este, Norte, Arriba")
 ENU1=np.array(ENU1)
 ax.scatter3D(ENU1[:,0], ENU1[:,1], ENU1[:,2],  cmap='Greens');
 ax.scatter3D(ENU2[:,0], ENU2[:,1], ENU2[:,2],  cmap='Greens');
 
 #
-
   #creando mapa y primer vector para graficar
 fig = go.Figure(data=go.Scattergeo( lat=[latitud_o * 180 / m.pi], lon=[longitud_o * 180 / m.pi], mode='markers'))
 fig.add_trace        (go.Scattergeo(lat= Geodetic1[0:iMeco,0],    lon= Geodetic1[0:iMeco,1],     mode='lines'))
@@ -664,12 +496,16 @@ fig.add_trace(       go.Scattergeo( lat= Geodetic2[iMeco:,0] ,    lon= Geodetic2
 fig.add_trace(       go.Scattergeo( lat=[Geodetic1[iSeco,0]],     lon=[Geodetic1[iSeco,1]],      mode='markers'))
 fig.update_geos(lataxis_showgrid=True, lonaxis_showgrid=True, fitbounds="locations")
 fig.show()
+
+plt.show()
+
 #TrayectoriaCSV
 TrayectoriaName="Trayectoria"+"_"+str((180/m.pi)*latitud_o)+"_" + str((180/m.pi)*longitud_o) + "_" + str((180/m.pi)*Azimuth)+".txt"
-print(TrayectoriaName+"\n")
-print("\n")
-print('Tiempo, VelENU1_E, VelENU1_N, VelENU1_U, ENU1_E, ENU1_N, ENU1_U, ECEF1_E, ECEF1_F, ECEF1_G, LLH1_Lat, LLH1_Long, LLH1_High, AER1_Az, AER1_El, AER1_R, VelENU2_E, VelENU2_N, VelENU2_U, ENU2_E, ENU2_N, ENU2_U, ECEF2_E, ECEF2_F, ECEF2_G, LLH2_Lat, LLH2_Long, LLH2_High, AER2_Az, AER2_El, AER2_R, \n')
+
+encabezado='Tiempo, VelENU1_E, VelENU1_N, VelENU1_U, ENU1_E, ENU1_N, ENU1_U, ECEF1_E, ECEF1_F, ECEF1_G, LLH1_Lat, LLH1_Long, LLH1_High, AER1_Az, AER1_El, AER1_R, VelENU2_E, VelENU2_N, VelENU2_U, ENU2_E, ENU2_N, ENU2_U, ECEF2_E, ECEF2_F, ECEF2_G, LLH2_Lat, LLH2_Long, LLH2_High, AER2_Az, AER2_El, AER2_R'
 TrayectoriaCSV = open(TrayectoriaName, "a")
+TrayectoriaCSV.write(encabezado + "\n")
+
 for i in range(0,iSeco,5):
   ss1=   str(m.floor(t[i]))            + ","+ str(m.ceil(Vel_ENU1[i][0]))  + ","+ str(m.ceil(Vel_ENU1[i][1]))  + ","+ str(m.ceil(Vel_ENU1[i][2]))  + ","
   ss2=   str(m.ceil(ENU1[i][0]))       + ","+ str(m.ceil(ENU1[i][1]))      + ","+ str(m.ceil(ENU1[i][2]))      + "," 

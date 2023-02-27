@@ -7,15 +7,11 @@ Original file is located at
     https://colab.research.google.com/drive/1H2-SwzzKFdo_Gp1oOtMJ_uOO0dv_KVeE
 """
 
-!pip install geoplot
-!pip install plotly
 
 import math
-import geoplot as gplt
 import numpy as np
 import plotly.graph_objects as go
-import pandas as pd 
-import csv
+
 
 def ECEFtoLLH(E, F, G):
   a_axis=6378.136999995039*10**3     # Eje mayor de la ellipse de la tierrra
@@ -159,12 +155,11 @@ def LLHtoAER(Lat1, Long1, Lat2, Long2):
 #"https://raw.githubusercontent.com/OmarACordova/Corredor-de-Vuelo/main/BajaCaliforniaPolar"
 url="https://raw.githubusercontent.com/OmarACordova/Corredor-de-Vuelo/main/BajaCaliforniaPolar"
 
-#Trayeectoria=open("BajaCaliforniaPolar", "r")
+trayectoria=open("ResultadosSimulador/Trayectoria_24.5_-111.5_220.0.txt", "r")
 #PresionvsAlturaPd=open("PresionvsAltura", "r")
 #PresionvsVelocidadPd=open("PresionvsDesviacion", "r")
 #PresionvsDesviacionPd=open("PresionvsDesviacion", "r")
 
-trayectoria=pd.read_csv(url)
 t = trayectoria["Tiempo"].tolist()
   
 VelENU2_E= trayectoria["VelENU2_E"].tolist()
